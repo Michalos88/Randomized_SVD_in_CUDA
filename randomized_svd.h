@@ -17,7 +17,6 @@
   ((__CUDACC_VER_MAJOR__ * 10000) + (__CUDACC_VER_MINOR__ * 100))
 #endif
 #include <Eigen/Core>
-#endif
 
 #include <algorithm>
 #include <chrono>
