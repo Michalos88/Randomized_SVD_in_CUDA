@@ -17,6 +17,7 @@
 #include <cmath>
 #include "Eigen/Dense"
 #include "utils.h"
+#include "matrix.h"
 
 using std::cout;
 using std::endl;
@@ -28,7 +29,7 @@ using Eigen::MatrixBase;
 
 class RandomizedSvd {
 public:
-  RandomizedSvd(const MatrixXd& m, int rank, int oversamples = 10, int iter = 2)
+  RandomizedSvd(const Matrix m, int rank, int oversamples = 10, int iter = 2)
       : U_(), V_(), S_() {
     ComputeRandomizedSvd(m, rank, oversamples, iter);
   }
@@ -45,10 +46,15 @@ private:
     Main function for randomized svd
     oversamples: additional samples/rank for accuracy, to account for random sampling
   */
-  void ComputeRandomizedSvd(const MatrixXd& A, int rank, int oversamples,
+  void ComputeRandomizedSvd(const Matrix M, int rank, int oversamples,
                             int iter) {
-    using namespace std::chrono;
 
+    using namespace std::chrono;
+    Eigen::MatrixXd A = Eigen::MatrixXd(M.height, M.width);
+    for (int i = 0; i < M.height; i++){
+      for (int j = 0; j < M.width; j++)
+        A(i,j)=M.elements[i*M.width+j];
+    }
     // If matrix is too small for desired rank/oversamples
     if((rank + oversamples) > min(A.rows(), A.cols())) {
       rank = min(A.rows(), A.cols());
@@ -106,6 +112,9 @@ private:
   Spectral norm = square root of maximum eigenvalue of matrix. Intuitively: the maximum 'scale', by which a matrix can 'stretch' a vector.
   Note: The definition of an eigenvalue is for square matrices. For non square matrices, we can define singular values: Definition: The singular values of a m×n matrix A are the positive square roots of the nonzero eigenvalues of the corresponding matrix A'A. The corresponding eigenvectors are called the singular vectors.
 */
+
+
+
 double diff_spectral_norm(MatrixXd A, MatrixXd U, VectorXd s, MatrixXd V, int n_iter=20) {
   int nr = A.rows();
 

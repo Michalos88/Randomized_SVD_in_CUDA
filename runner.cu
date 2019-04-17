@@ -80,15 +80,10 @@ int main(int argc, char** argv) {
     // computeGold(reference.elements, M.elements, N.elements, M.height, M.width, N.width);
 
         
-    printf("CPU Computation Started\n");
+
     int rank = 10;
-	Eigen::MatrixXd M_eigen = Eigen::MatrixXd(M_host.height, M_host.width);
-    for (int i = 0; i < M_host.height; i++){
-		for (int j = 0; j < M_host.width; j++)
-			M_eigen(i,j)=M_host.elements[i*M_host.width+j];
-	}
     
-    RandomizedSvd rsvd(M_eigen, rank);
+    RandomizedSvd rsvd(M_host, rank);
     // in this case check if the result is equivalent to the expected soluion
     // bool res = nocutComparefe(reference.elements, P.elements, 
 	// 								P.height*P.width, 0.001f);
