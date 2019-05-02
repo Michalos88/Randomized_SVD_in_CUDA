@@ -18,6 +18,7 @@
 void mmqr(Scalar* mat, Scalar* tau, int m, int n);
 void getPanelDims(int m, int n, int* rowPanels, int* colPanels);
 void MatrixMulOnDevice(const Matrix M, const Matrix N, Matrix P);
+void explicitQR(Scalar* A, Scalar* tau, Scalar* Q, Scalar* R, int m, int n);
 
 ////////////////////////////////////////////////////////////////////////////////
 //  (1) generation of random matrix 𝛺;
@@ -122,24 +123,16 @@ void qr_decompostion(Scalar* RV, int m, int n){
     gettimeofday(&currentTime, NULL);
     mmqr(RV, tau, m, n);
 
-    /*
-    printf("tau values after QR (grid corresponding to columns within panels):\n");
-    for(int j = 0; j < rowPanels; j++)
-    {
-        for(int i = 0; i < colPanels * PC; i++)
-        {
-        printf("%9f ", tau[i * rowPanels + j]);
-        }
-        putchar('\n');
-    }
-    putchar('\n');
-    */
-    //printf("A raw storage after QR:\n");
-    //printMat(RV, m, n);
-    /*
+    
+
     Scalar* Q = (Scalar*) malloc(m * m * sizeof(Scalar));
     Scalar* R = (Scalar*) malloc(m * n * sizeof(Scalar));
-    ;
+    explicitQR(RV, tau, Q, R, m, n);
+    printf("Q:\n");
+    printMat(Q, m, m);
+    printf("R:\n");
+    printMat(R, m, n);
+    /*
     printf("Q:\n");
     printMat(Q, m, m);
     printf("R:\n");
@@ -161,9 +154,7 @@ void qr_decompostion(Scalar* RV, int m, int n){
     free(QRmA);
     errNorm = sqrt(errNorm);
     printf("L2 norm of residual QR-A: %.9g\n", errNorm);
-    free(R);
-    free(Q);
-    free(QR);
+
     */
     struct timeval nextTime;
     gettimeofday(&nextTime, NULL);
@@ -187,11 +178,12 @@ int main(int argc, const char** argv)
     //initialize A randomly
     Scalar* A = (Scalar*) malloc(m * n * sizeof(Scalar));
     Scalar* Omega = (Scalar*) malloc(n * r * sizeof(Scalar));
+    printf("A:\n");
     for(int i = 0; i < m * n; i++)
     {
         A[i] = (Scalar) rand() / RAND_MAX;
     }
-    
+    printf("Omega:\n");
     for(int i = 0; i < n * r; i++)
     {
         Omega[i] = (Scalar) rand() / RAND_MAX;
@@ -202,6 +194,9 @@ int main(int argc, const char** argv)
     qr_decompostion(A,m,n);
     free(A);
     free(Omega);
+    free(R);
+    free(Q);
+    free(QR);
     return 0;
 }
 
