@@ -19,20 +19,6 @@ void mmqr(Scalar* mat, Scalar* tau, int m, int n);
 void getPanelDims(int m, int n, int* rowPanels, int* colPanels);
 void MatrixMulOnDevice(const Matrix M, const Matrix N, Matrix P);
 
-__host__ __device__ void printMat(Scalar* mat, int m, int n)
-{
-  printf("Matrix %d x %d, row by row:\n", m, n);
-  for(int i = 0; i < m; i++)
-  {
-    for(int j = 0; j < n; j++)
-    {
-      printf("%9f ", mat[j * m + i]);
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 //  (1) generation of random matrix 𝛺;
 //  (2) matrix-matrix multiplication of 𝐴𝛺 to produce 𝑌;
@@ -131,6 +117,7 @@ void qr_decompostion(Scalar* RV, int m, int n){
     srand(12);
 
     // Apply QR and time it
+    double mmqrElapsed = 0;
     struct timeval currentTime;
     gettimeofday(&currentTime, NULL);
     mmqr(RV, tau, m, n);

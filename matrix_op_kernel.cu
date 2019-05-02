@@ -1,21 +1,21 @@
 
-__global__ void transpose(Matrix M, Matrix P)
-{
+// __global__ void transpose(Matrix M, Matrix P)
+// {
  
-    // Get our global thread IDs
-    int idx = blockIdx.x*blockDim.x+threadIdx.x;
-    int idy = blockIdx.y*blockDim.y+threadIdx.y;
+//     // Get our global thread IDs
+//     int idx = blockIdx.x*blockDim.x+threadIdx.x;
+//     int idy = blockIdx.y*blockDim.y+threadIdx.y;
 
-    int temp = M.elements[*M.width+j];
-    __syncthreads();
+//     int temp = M.elements[*M.width+j];
+//     __syncthreads();
 
-    // Make sure we do not go out of bounds
-    if(idx < M.width && idy < M.height){
-        P.elements[idx*P.width+idy] = temp
-    }
+//     // Make sure we do not go out of bounds
+//     if(idx < M.width && idy < M.height){
+//         P.elements[idx*P.width+idy] = temp;
+//     }
 
 
-}
+// }
 
 
 __global__ void MatrixMulKernel_Shared(Matrix M, Matrix N, Matrix P)
@@ -60,14 +60,14 @@ __global__ void MatrixMulKernel_Shared(Matrix M, Matrix N, Matrix P)
     }
 }
 
-// c = a + b * s
-void vmadd(const Vector& a, const Vector& b, double s, Vector& c)
-{
-  if (c.size != a.size or c.size != b.size) {
-    std::cerr << "[vmadd]: vector sizes don't match\n";
-    return;
-  }
+// // c = a + b * s
+// void vmadd(const Vector& a, const Vector& b, double s, Vector& c)
+// {
+//   if (c.size != a.size or c.size != b.size) {
+//     std::cerr << "[vmadd]: vector sizes don't match\n";
+//     return;
+//   }
  
-  for (int i = 0; i < c.size; i++)
-    c(i) = a(i) + s * b(i);
-}
+//   for (int i = 0; i < c.size; i++)
+//     c(i) = a(i) + s * b(i);
+// }
