@@ -16,7 +16,7 @@
 
 
 // }
-
+#define TILE_WIDTH 16
 
 __global__ void MatrixMulKernel_Shared(Matrix M, Matrix N, Matrix P)
 {
