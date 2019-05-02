@@ -11,11 +11,27 @@
 #include <cuda_profiler_api.h>
 #include "matrix.h"
 #include "caqr.cu"
+#include "matrix_op_kernel.cu"
 #define TILE_WIDTH 16
 #define Scalar float
 
 void mmqr(Scalar* mat, Scalar* tau, int m, int n);
 void getPanelDims(int m, int n, int* rowPanels, int* colPanels);
+void MatrixMulOnDevice(const Matrix M, const Matrix N, Matrix P);
+
+__host__ __device__ void printMat(Scalar* mat, int m, int n)
+{
+  printf("Matrix %d x %d, row by row:\n", m, n);
+  for(int i = 0; i < m; i++)
+  {
+    for(int j = 0; j < n; j++)
+    {
+      printf("%9f ", mat[j * m + i]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //  (1) generation of random matrix 𝛺;
@@ -25,6 +41,7 @@ void getPanelDims(int m, int n, int* rowPanels, int* colPanels);
 //  (5) deterministic SVD decomposition on 𝐵.
 ////////////////////////////////////////////////////////////////////////////////
 // Matrix multiplication kernel thread specification
+
 __global__ void find_randomized_range(Matrix M, int rank)
 {
  
@@ -69,137 +86,137 @@ __global__ void find_randomized_range(Matrix M, int rank)
 }
  
 
-void qr_decompostion(int m, int n){
-  //make m,n fit to panels
-  {
-    int numPanels = ((double) (m - PR) / (PR - PC) + 0.5);
-    m = PR + numPanels * (PR - PC);
-  }
-  {
-    int numPanels = ((double) n / PC + 0.5);
-    if(numPanels == 0)
-      numPanels = 1;
-    n = numPanels * PC;
-    while(n > m)
-      n -= PC;
-  }
-  printf("Exact problem size: %dx%d\n", m, n);
-  assert(m && n && m >= n);
-  //only use one device (at least, for now)
-  //First, make sure device is using proper 48 KB of shared, 16 KB L1
-  //during all calls to L1 kernel
-  //Note that this is not the default
-  HANDLE_ERROR(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
-  cudaDeviceProp prop;
-  HANDLE_ERROR(cudaGetDeviceProperties(&prop, 0));
-  int sm = prop.multiProcessorCount;
-  printf("Testing mmqr on \"%s\"\n", prop.name);
-  printf("Device has %d SMs, %zu bytes of shared, and up to %d threads per block\n", sm, prop.sharedMemPerBlock, prop.maxThreadsPerBlock);
-  if(sizeof(Scalar) == 4)
-  {
-    HANDLE_ERROR(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte));
-  }
-  else if(sizeof(Scalar) == 8)
-  {
-    HANDLE_ERROR(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
-  }
-  else
-  {
-    puts("Only float (32-bit) and double (64-bit) reals are supported scalar types");
-    exit(1);
-  }
-  Scalar* A = (Scalar*) malloc(m * n * sizeof(Scalar));
-  Scalar* RV = (Scalar*) malloc(m * n * sizeof(Scalar));
-  int rowPanels, colPanels;
-  getPanelDims(m, n, &rowPanels, &colPanels);
-  Scalar* tau = (Scalar*) malloc(rowPanels * colPanels * PC * sizeof(Scalar));
-  srand(12);
-  //initialize A randomly
-  for(int i = 0; i < m * n; i++)
-  {
-    A[i] = (Scalar) rand() / RAND_MAX;
-    RV[i] = A[i];
-  }
-  //puts("A matrix:\n");
-  //printMat(A, m, n);
-  double mmqrElapsed = 0;
-  struct timeval currentTime;
-  gettimeofday(&currentTime, NULL);
-  for(int i = 0; i < trials; i++)
-  {
-    mmqr(RV, tau, m, n);
-    struct timeval nextTime;
-    gettimeofday(&nextTime, NULL);
-    //add to elapsed time
-    mmqrElapsed += (nextTime.tv_sec + 1e-6 * nextTime.tv_usec) - (currentTime.tv_sec + 1e-6 * currentTime.tv_usec);
-    currentTime = nextTime;
-    //refresh RV for next trial (this isn't part of the algorithm and so isn't timed)
-    if(i != trials - 1)
-      memcpy(RV, A, m * n * sizeof(Scalar));
-  }
-  printf(" MMQR ran QR on %dx%d matrix in %f s (avg over %d)\n", m, n, mmqrElapsed / trials, trials);
-  cudaProfilerStop();
-  /*
-  printf("tau values after QR (grid corresponding to columns within panels):\n");
-  for(int j = 0; j < rowPanels; j++)
-  {
-    for(int i = 0; i < colPanels * PC; i++)
+void qr_decompostion(Scalar* RV, int m, int n){
+    //make m,n fit to panels
     {
-      printf("%9f ", tau[i * rowPanels + j]);
+        int numPanels = ((double) (m - PR) / (PR - PC) + 0.5);
+        m = PR + numPanels * (PR - PC);
+    }
+    {
+        int numPanels = ((double) n / PC + 0.5);
+        if(numPanels == 0)
+        numPanels = 1;
+        n = numPanels * PC;
+        while(n > m)
+        n -= PC;
+    }
+    printf("Exact problem size: %dx%d\n", m, n);
+    assert(m && n && m >= n);
+    //only use one device (at least, for now)
+    //First, make sure device is using proper 48 KB of shared, 16 KB L1
+    //during all calls to L1 kernel
+    //Note that this is not the default
+    HANDLE_ERROR(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
+    cudaDeviceProp prop;
+    HANDLE_ERROR(cudaGetDeviceProperties(&prop, 0));
+    int sm = prop.multiProcessorCount;
+    printf("Testing mmqr on \"%s\"\n", prop.name);
+    printf("Device has %d SMs, %zu bytes of shared, and up to %d threads per block\n", sm, prop.sharedMemPerBlock, prop.maxThreadsPerBlock);
+    if(sizeof(Scalar) == 4)
+    {
+        HANDLE_ERROR(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte));
+    }
+    else if(sizeof(Scalar) == 8)
+    {
+        HANDLE_ERROR(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
+    }
+    else
+    {
+        puts("Only float (32-bit) and double (64-bit) reals are supported scalar types");
+        exit(1);
+    }
+    int rowPanels, colPanels;
+    getPanelDims(m, n, &rowPanels, &colPanels);
+    Scalar* tau = (Scalar*) malloc(rowPanels * colPanels * PC * sizeof(Scalar));
+    srand(12);
+
+    // Apply QR and time it
+    struct timeval currentTime;
+    gettimeofday(&currentTime, NULL);
+    mmqr(RV, tau, m, n);
+
+    /*
+    printf("tau values after QR (grid corresponding to columns within panels):\n");
+    for(int j = 0; j < rowPanels; j++)
+    {
+        for(int i = 0; i < colPanels * PC; i++)
+        {
+        printf("%9f ", tau[i * rowPanels + j]);
+        }
+        putchar('\n');
     }
     putchar('\n');
-  }
-  putchar('\n');
-  */
-  //printf("A raw storage after QR:\n");
-  //printMat(RV, m, n);
-  /*
-  Scalar* Q = (Scalar*) malloc(m * m * sizeof(Scalar));
-  Scalar* R = (Scalar*) malloc(m * n * sizeof(Scalar));
-  explicitQR(RV, tau, Q, R, m, n);
-  printf("Q:\n");
-  printMat(Q, m, m);
-  printf("R:\n");
-  printMat(R, m, n);
-  //now compute Q*R explicitly and compare to A
-  Scalar* QR = (Scalar*) malloc(m * n * sizeof(Scalar));
-  dgemm(Q, R, QR, m, m, n);
-  printf("QR:\n");
-  printMat(QR, m, n);
-  Scalar* QRmA = (Scalar*) malloc(m * n * sizeof(Scalar));
-  Scalar errNorm = 0;
-  for(int i = 0; i < m * n; i++)
-  {
-    QRmA[i] = QR[i] - A[i];
-    errNorm += QRmA[i] * QRmA[i];
-  }
-  printf("QR-A (should be 0):\n");
-  printMat(QRmA, m, n);
-  free(QRmA);
-  errNorm = sqrt(errNorm);
-  printf("L2 norm of residual QR-A: %.9g\n", errNorm);
-  free(R);
-  free(Q);
-  free(QR);
-  */
-  free(RV);
-  free(A);
+    */
+    //printf("A raw storage after QR:\n");
+    //printMat(RV, m, n);
+    /*
+    Scalar* Q = (Scalar*) malloc(m * m * sizeof(Scalar));
+    Scalar* R = (Scalar*) malloc(m * n * sizeof(Scalar));
+    ;
+    printf("Q:\n");
+    printMat(Q, m, m);
+    printf("R:\n");
+    printMat(R, m, n);
+    //now compute Q*R explicitly and compare to A
+    Scalar* QR = (Scalar*) malloc(m * n * sizeof(Scalar));
+    dgemm(Q, R, QR, m, m, n);
+    printf("QR:\n");
+    printMat(QR, m, n);
+    Scalar* QRmA = (Scalar*) malloc(m * n * sizeof(Scalar));
+    Scalar errNorm = 0;
+    for(int i = 0; i < m * n; i++)
+    {
+        QRmA[i] = QR[i] - A[i];
+        errNorm += QRmA[i] * QRmA[i];
+    }
+    printf("QR-A (should be 0):\n");
+    printMat(QRmA, m, n);
+    free(QRmA);
+    errNorm = sqrt(errNorm);
+    printf("L2 norm of residual QR-A: %.9g\n", errNorm);
+    free(R);
+    free(Q);
+    free(QR);
+    */
+    struct timeval nextTime;
+    gettimeofday(&nextTime, NULL);
+    mmqrElapsed += (nextTime.tv_sec + 1e-6 * nextTime.tv_usec) - (currentTime.tv_sec + 1e-6 * currentTime.tv_usec);
+    currentTime = nextTime;
+    printf("Ran QR on %dx%d matrix in %f s\n", m, n, mmqrElapsed);
+    cudaProfilerStop();
+    free(A);
 }
 
 int main(int argc, const char** argv)
 {
-  HANDLE_ERROR(cudaSetDevice(0));
-  if(argc < 3)
-  {
-    puts("Usage: ./qr_device m n");
-    exit(1);
-  }
-  int m = atoi(argv[1]);
-  int n = atoi(argv[2]);
+    if(argc < 4)
+    {
+        puts("Usage: ./qr_device m n r");
+        exit(1);
+    }
+    int m = atoi(argv[1]);
+    int n = atoi(argv[2]);
+    int r = atoi(argv[3]);
 
-  qr_decompostion(m,n);
+    //initialize A randomly
+    Scalar* A = (Scalar*) malloc(m * n * sizeof(Scalar));
+    Scalar* Omega = (Scalar*) malloc(n * r * sizeof(Scalar));
+    for(int i = 0; i < m * n; i++)
+    {
+        A[i] = (Scalar) rand() / RAND_MAX;
+    }
+    
+    for(int i = 0; i < n * r; i++)
+    {
+        Omega[i] = (Scalar) rand() / RAND_MAX;
+    }
 
-  return 0;
+    printMat(A,5,5);
+    printMat(Omega,3,3);
+    qr_decompostion(A,m,n);
+    free(A);
+    free(Omega);
+    return 0;
 }
 
 #endif // #ifndef _MATRIXMUL_KERNEL_H_
