@@ -184,7 +184,6 @@ void qr_decompostion(int m, int n){
   */
   free(RV);
   free(A);
-  return 0;
 }
 
 int main(int argc, const char** argv)
@@ -198,6 +197,9 @@ int main(int argc, const char** argv)
   int m = atoi(argv[1]);
   int n = atoi(argv[2]);
 
+  qr_decompostion(m,n);
+
+  return 0;
 }
 
 #endif // #ifndef _MATRIXMUL_KERNEL_H_
