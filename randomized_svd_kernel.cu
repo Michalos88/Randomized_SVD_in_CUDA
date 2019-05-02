@@ -75,20 +75,22 @@ __global__ void find_randomized_range(Matrix M, int rank)
 
 void qr_decompostion(Scalar* RV, int m, int n){
     //make m,n fit to panels
-    {
-        int numPanels = ((double) (m - PR) / (PR - PC) + 0.5);
-        m = PR + numPanels * (PR - PC);
-    }
-    {
-        int numPanels = ((double) n / PC + 0.5);
-        if(numPanels == 0)
-        numPanels = 1;
-        n = numPanels * PC;
-        while(n > m)
-        n -= PC;
-    }
+    // {
+    //     int numPanels = ((double) (m - PR) / (PR - PC) + 0.5);
+    //     m = PR + numPanels * (PR - PC);
+    // }
+    // {
+    //     int numPanels = ((double) n / PC + 0.5);
+    //     if(numPanels == 0)
+    //     numPanels = 1;
+    //     n = numPanels * PC;
+    //     while(n > m)
+    //     n -= PC;
+    // }
+    
     printf("Exact problem size: %dx%d\n", m, n);
     assert(m && n && m >= n);
+
     //only use one device (at least, for now)
     //First, make sure device is using proper 48 KB of shared, 16 KB L1
     //during all calls to L1 kernel
@@ -121,9 +123,9 @@ void qr_decompostion(Scalar* RV, int m, int n){
     double mmqrElapsed = 0;
     struct timeval currentTime;
     gettimeofday(&currentTime, NULL);
+    printMat(RV, 3, 3);
     mmqr(RV, tau, m, n);
-
-    
+    printMat(RV, 3, 3);
 
     Scalar* Q = (Scalar*) malloc(m * m * sizeof(Scalar));
     Scalar* R = (Scalar*) malloc(m * n * sizeof(Scalar));
@@ -133,10 +135,6 @@ void qr_decompostion(Scalar* RV, int m, int n){
     printf("R:\n");
     printMat(R, m, n);
     /*
-    printf("Q:\n");
-    printMat(Q, m, m);
-    printf("R:\n");
-    printMat(R, m, n);
     //now compute Q*R explicitly and compare to A
     Scalar* QR = (Scalar*) malloc(m * n * sizeof(Scalar));
     dgemm(Q, R, QR, m, m, n);
@@ -162,6 +160,10 @@ void qr_decompostion(Scalar* RV, int m, int n){
     currentTime = nextTime;
     printf("Ran QR on %dx%d matrix in %f s\n", m, n, mmqrElapsed);
     cudaProfilerStop();
+    free(RV);
+    free(Q);
+    free(R);
+
 }
 
 int main(int argc, const char** argv)
@@ -194,9 +196,7 @@ int main(int argc, const char** argv)
     qr_decompostion(A,m,n);
     free(A);
     free(Omega);
-    free(R);
-    free(Q);
-    free(QR);
+
     return 0;
 }
 
