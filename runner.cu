@@ -7,8 +7,8 @@
 #include "nocutil.h"
 // #include "matrixmul_gold.cpp"
 
-// // includes, kernels
-// #include "matrixmul_kernel.cu"
+// includes, kernels
+#include "randomized_svd_kernel.cu"
 
 ////////////////////////////////////////////////////////////////////////////////
 // declarations, forward
@@ -72,9 +72,10 @@ int main(int argc, char** argv) {
     
 
 	// FAST SVD on Device
-    // MatrixMulOnDevice(M, N, P);
-    
-	printf("GPU computation complete\n");
+	printf("CPU Computation Started\n");
+	
+	printf("GPU Computation Completed\n");
+
     // compute the matrix multiplication on the CPU for comparison
     // Matrix reference = AllocateMatrix(P.height, P.width, 0);
     // computeGold(reference.elements, M.elements, N.elements, M.height, M.width, N.width);
@@ -82,8 +83,9 @@ int main(int argc, char** argv) {
         
 
     int rank = 10;
-    
-    RandomizedSvd rsvd(M_host, rank);
+	printf("CPU Computation Started\n");
+	RandomizedSvd rsvd(M_host, rank);
+	// printf("%f", rsvd.singularValues()[0]);
     // in this case check if the result is equivalent to the expected soluion
     // bool res = nocutComparefe(reference.elements, P.elements, 
 	// 								P.height*P.width, 0.001f);
