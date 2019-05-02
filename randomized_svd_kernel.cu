@@ -171,7 +171,6 @@ void qr_decompostion(Scalar* RV, int m, int n){
     currentTime = nextTime;
     printf("Ran QR on %dx%d matrix in %f s\n", m, n, mmqrElapsed);
     cudaProfilerStop();
-    free(A);
 }
 
 int main(int argc, const char** argv)
