@@ -10,10 +10,20 @@
 #include <sys/time.h>
 #include <cuda_profiler_api.h>
 #include "matrix.h"
-#include "caqr.cu"
-#include "matrix_op_kernel.cu"
+#include "./kernels/caqr.cu"
+#include "./kernels/matrix_op_kernel.cu"
 #define TILE_WIDTH 16
 #define Scalar float
+
+#include "cuda_runtime.h"
+#include "device_launch_paraMeters.h"
+
+#include<iostream>
+#include<iomanip>
+#include <cusolverDn.h>
+#include <cuda_runtime_api.h>
+
+#include "Utilities.cuh"
 
 void mmqr(Scalar* mat, Scalar* tau, int m, int n);
 void getPanelDims(int m, int n, int* rowPanels, int* colPanels);
@@ -88,8 +98,8 @@ void qr_decompostion(Scalar* RV, int m, int n){
     //     n -= PC;
     // }
     
-    printf("Exact problem size: %dx%d\n", m, n);
-    assert(m && n && m >= n);
+    // printf("Exact problem size: %dx%d\n", m, n);
+    // assert(m && n && m >= n);
 
     //only use one device (at least, for now)
     //First, make sure device is using proper 48 KB of shared, 16 KB L1
@@ -176,6 +186,12 @@ int main(int argc, const char** argv)
     int m = atoi(argv[1]);
     int n = atoi(argv[2]);
     int r = atoi(argv[3]);
+
+    //initialize CUDA - solver 
+    // --- CUDA solver initialization
+	cusolverDnHandle_t solver_handle;
+	cusolverDnCreate(&solver_handle);
+
 
     //initialize A randomly
     Scalar* A = (Scalar*) malloc(m * n * sizeof(Scalar));

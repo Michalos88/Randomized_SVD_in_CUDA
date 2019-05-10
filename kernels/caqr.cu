@@ -653,12 +653,12 @@ void explicitQR(Scalar* A, Scalar* tau, Scalar* Q, Scalar* R, int m, int n)
           else
             v[i] = A[(pc + col) * m + i];
         }
-        printf("REFLECTOR: column %d in panel %d, %d:\n", col, pr, pc);
-        for(int i = 0; i < m; i++)
-        {
-          printf("%9f ", v[i]);
-        }
-        putchar('\n');
+        // printf("REFLECTOR: column %d in panel %d, %d:\n", col, pr, pc);
+        // for(int i = 0; i < m; i++)
+        // {
+        //   printf("%9f ", v[i]);
+        // }
+        // putchar('\n');
         //create H matrix for this reflector
         Scalar* H = (Scalar*) malloc(m * m * sizeof(Scalar));
         identity(H, m);
