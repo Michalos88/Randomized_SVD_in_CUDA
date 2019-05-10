@@ -19,6 +19,7 @@
 #include "./utils/matrix.h"
 #include "./utils/gpuErrorCheck.h"
 #include "./utils/rsvd.h"
+#include "./utils/math_util_cpu.cpp"
 // #include "./kernels/caqr.cu"
 // #include "./kernels/matrix_op_kernel.cu"
 
@@ -53,6 +54,24 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
     const uint64_t ldA  = roundup_to_32X( m );  // multiple of 32 by default
     const uint64_t ldVT = roundup_to_32X( l );
     const uint64_t ldU = ldA;
+
+    // allocate device memory
+    
+    
+    // allocate host memory as pinned memory
+    double *host_S1;
+
+    CHECK_CUDA( cudaHostAlloc( (void**)&host_S1,     l * sizeof(double), cudaHostAllocPortable ) );
+    
+    double *host_A, *host_U, *host_S, *host_VT;
+    CHECK_CUDA( cudaMallocHost((void**)&host_A, m * n * sizeof(double)) );
+    CHECK_CUDA( cudaMallocHost((void**)&host_U, m * l * sizeof(double)) );
+    CHECK_CUDA( cudaMallocHost((void**)&host_S,     l * sizeof(double)) );
+    CHECK_CUDA( cudaMallocHost((void**)&host_VT,l * n * sizeof(double)) );
+
+    /* generate random low rank matrix A ***/
+    //genLowRankMatrixGPU(cublasH, dev_A, m, n, k, ldA);
+    genLowRankMatrix(host_A, m, n, k);
 }
 
 

@@ -15,11 +15,6 @@ using namespace std;
 #define testError true
 
 
-__host__ __device__
-static inline uint64_t roundup_to_32X(const uint64_t x){
-    return ((x + 32 - 1) / 32) * 32;
-}
-
 void rsvd_gpu(double *U, double *S, double *VT, double *A,
               const uint64_t m, const uint64_t n, const uint64_t l, const uint64_t q,
               cusolverDnHandle_t &cusolverH, cublasHandle_t &cublasH);
