@@ -14,12 +14,14 @@
 #include <iomanip>
 #include <cuda_runtime_api.h>
 #include <stdint.h>
+#include <chrono> // for timer
 
 // My Packages
 #include "./utils/matrix.h"
 #include "./utils/gpuErrorCheck.h"
 #include "./utils/rsvd.h"
 #include "./utils/math_util_cpu.cpp"
+#include "./kernels/rsvd_cu_packages.cu"
 // #include "./kernels/caqr.cu"
 // #include "./kernels/matrix_op_kernel.cu"
 
@@ -37,6 +39,12 @@
 //  (4) matrix-matrix multiplication of 𝑄𝑇𝐴; and
 //  (5) deterministic SVD decomposition on 𝐵.
 ////////////////////////////////////////////////////////////////////////////////
+// timer
+uint64_t getCurrTime()
+{
+    return chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
+}
+
 
 void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
 
@@ -72,10 +80,35 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
     /* generate random low rank matrix A ***/
     //genLowRankMatrixGPU(cublasH, dev_A, m, n, k, ldA);
     genLowRankMatrix(host_A, m, n, k);
+
+    size_t freeMem, totalMem;
+    CHECK_CUDA(cudaMemGetInfo(&freeMem, &totalMem));
+    double dataSize = m * n * sizeof(double);
+
+    /*********************************** In-core rSVD ***********************************/
+    double *dev_A, *dev_U, *dev_S, *dev_VT;
+    uint64_t tick = getCurrTime();
+
+    if(dataSize < freeMem * 0.7){
+        CHECK_CUDA( cudaMalloc((void **)&dev_A, ldA * n * sizeof(double)) );
+        CHECK_CUDA( cudaMalloc((void **)&dev_U, ldU * l * sizeof(double)) );
+        CHECK_CUDA( cudaMalloc((void **)&dev_S,       l * sizeof(double)) );
+        CHECK_CUDA( cudaMalloc((void **)&dev_VT,ldVT* n * sizeof(double)) );
+        CHECK_CUDA( cudaMemsetAsync(dev_A, 0,   ldA * l * sizeof(double)) );
+        CHECK_CUDA( cudaMemsetAsync(dev_U, 0,   ldU * l * sizeof(double)) );
+        CHECK_CUDA( cudaMemsetAsync(dev_S, 0,         l * sizeof(double)) );
+        CHECK_CUDA( cudaMemsetAsync(dev_VT,0,   ldVT* n * sizeof(double)) );
+        CHECK_CUBLAS( cublasSetMatrix(m, n, sizeof(double), host_A, m, dev_A, ldA) );
+        
+        // print_device_matrix(dev_A, m, n, ldA, "A");
+        
+        rsvd_gpu(dev_U, dev_S, dev_VT, dev_A, m, n, l, q, cusolverH, cublasH);
+    }
+    uint64_t tock = getCurrTime();
+    double InCoreTime = (tock - tick) / 1e6; //from µs to s
+
+    cout << InCoreTime << endl;
 }
-
-
-
 
 
 int main(int argc, const char** argv)
