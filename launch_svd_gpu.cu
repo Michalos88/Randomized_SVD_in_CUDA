@@ -16,37 +16,20 @@
 #include <stdint.h>
 #include <chrono> // for timer
 
-// My Packages
+// My Libs
 #include "./utils/matrix.h"
 #include "./utils/gpuErrorCheck.h"
 #include "./utils/rsvd.h"
 #include "./utils/math_util_cpu.cpp"
-#include "./kernels/rsvd_cu_packages.cu"
-// #include "./kernels/caqr.cu"
-// #include "./kernels/matrix_op_kernel.cu"
+#include "./kernels/rsvd_device.cu" 
 
-
-// CONSTANTS 
-#define TILE_WIDTH 16
-#define Scalar float
-
-// Function Definitions
-
-////////////////////////////////////////////////////////////////////////////////
-//  (1) generation of random matrix 𝛺;
-//  (2) matrix-matrix multiplication of 𝐴𝛺 to produce 𝑌;
-//  (3) QR decomposition on 𝑌;
-//  (4) matrix-matrix multiplication of 𝑄𝑇𝐴; and
-//  (5) deterministic SVD decomposition on 𝐵.
-////////////////////////////////////////////////////////////////////////////////
 // timer
 uint64_t getCurrTime()
 {
     return chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
-
-void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
+void rsvd_on_gpu(const uint64_t m, const uint64_t n, const uint64_t k){
 
     // create cusolverDn/cublas handle
     cusolverDnHandle_t cusolverH = NULL;
@@ -61,10 +44,7 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
 
     const uint64_t ldA  = roundup_to_32X( m );  // multiple of 32 by default
     const uint64_t ldVT = roundup_to_32X( l );
-    const uint64_t ldU = ldA;
-
-    // allocate device memory
-    
+    const uint64_t ldU = ldA;    
     
     // allocate host memory as pinned memory
     double *host_S1;
@@ -87,6 +67,7 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
 
     /*********************************** In-core rSVD ***********************************/
     double *dev_A, *dev_U, *dev_S, *dev_VT;
+    
     uint64_t tick = getCurrTime();
 
     if(dataSize < freeMem * 0.7){
@@ -99,15 +80,14 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
         CHECK_CUDA( cudaMemsetAsync(dev_S, 0,         l * sizeof(double)) );
         CHECK_CUDA( cudaMemsetAsync(dev_VT,0,   ldVT* n * sizeof(double)) );
         CHECK_CUBLAS( cublasSetMatrix(m, n, sizeof(double), host_A, m, dev_A, ldA) );
-        
-        // print_device_matrix(dev_A, m, n, ldA, "A");
-        
         rsvd_gpu(dev_U, dev_S, dev_VT, dev_A, m, n, l, q, cusolverH, cublasH);
+    }else{
+        cout << "This Matrix is too big!" << endl;
     }
     uint64_t tock = getCurrTime();
     double InCoreTime = (tock - tick) / 1e6; //from µs to s
 
-    cout << InCoreTime << endl;
+    cout << "RSVD On GPU Time: " << InCoreTime << endl;
 }
 
 
@@ -121,8 +101,10 @@ int main(int argc, const char** argv)
     uint64_t m = atoi(argv[1]);
     uint64_t n = atoi(argv[2]);
     uint64_t r = atoi(argv[3]); // target rank
-
-    rsvd(m,n,r);
+    srand(5672);
+    cout << "GPU RSVD Started" << endl;
+    rsvd_on_gpu(m,n,r);
+    cout << "GPU RSVD Completed" << endl;
 
     return 0;
 }

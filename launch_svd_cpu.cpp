@@ -1,14 +1,14 @@
-#include "randomized_svd.h" 
 // includes, system
 #include <string>
-
+#include <chrono> // for timer
+#include <iostream>
 // includes, project
-#include "matrix.h"
-#include "nocutil.h"
+#include "./utils/matrix.h"
 // #include "matrixmul_gold.cpp"
 
 // includes, kernels
-#include "randomized_svd_kernel.cu"
+#include "./kernels/rsvd_host.h"
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // declarations, forward
@@ -26,7 +26,10 @@ void FreeDeviceMatrix(Matrix* M);
 void FreeMatrix(Matrix* M);
 
 // void MatrixMulOnDevice(const Matrix M, const Matrix N, Matrix P);
-
+uint64_t getCurrTime()
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
@@ -37,40 +40,18 @@ int main(int argc, char** argv) {
 	int error_read = 0,
 	
 	srand(5672);
-	// TODO: CASE2: Randomized size of a matrix
-	if(argc != 4) {
-		// Allocate and initialize the matrices
-		// float M_height = rand() % 1024;
-        // float M_width = rand() % 1024;
-        float M_height = 1024;
-		float M_width = 1024;
 
-		// while(M_height*N_width>64000){
-		// 	M_height = rand() % 1024;
-		// 	M_width = rand() % 1024;
-		// }
-		
-		M_host  = AllocateMatrix(M_height, M_width, 1);
 
-	}else{
-		// Allocate and read in matrices from disk
-		int* params = NULL; //(int*)malloc(3 * sizeof(int));
-	    unsigned int data_read = 3;
-	    nocutReadFilei(argv[1], &params, &data_read, true);
-		if(data_read != 3){
-			printf("Error reading parameter file\n");
-			return 1;
-		}
-
-		M_host  = AllocateMatrix(params[0], params[1], 0);
-		error_read = ReadFile(&M_host, argv[2]);
-		if(error_read){
-			printf("Error reading input files %d\n", error_read);
-			return 1;
-		}
-    }
+	if(argc < 4)
+	{
+		puts("Please Provide: m n r");
+		exit(1);
+	}
+	int m = atoi(argv[1]);
+	int n = atoi(argv[2]);
+	int rank = atoi(argv[3]); // target rank
     
-
+	M_host  = AllocateMatrix(m, n, 1);
 	// FAST SVD on Device
 	printf("CPU Computation Started\n");
 	
@@ -79,26 +60,22 @@ int main(int argc, char** argv) {
     // compute the matrix multiplication on the CPU for comparison
     // Matrix reference = AllocateMatrix(P.height, P.width, 0);
     // computeGold(reference.elements, M.elements, N.elements, M.height, M.width, N.width);
-
-        
-
-    int rank = 10;
 	printf("CPU Computation Started\n");
+	
+	uint64_t tick = getCurrTime();
+
 	RandomizedSvd rsvd(M_host, rank);
+
+	uint64_t tock = getCurrTime();
+
+	double InCoreTime = (tock - tick) / 1e6; //from µs to s
+	cout << "RSVD On CPU Time: " << InCoreTime << endl;
 	// printf("%f", rsvd.singularValues()[0]);
     // in this case check if the result is equivalent to the expected soluion
     // bool res = nocutComparefe(reference.elements, P.elements, 
 	// 								P.height*P.width, 0.001f);
     // printf("Test %s\n", (1 == res) ? "PASSED" : "FAILED");
     printf("CPU Computation Completed\n");
-    if(argc == 4)
-    {
-		WriteFile(M_host, argv[3]);
-	}
-	else if(argc == 2)
-	{
-	    WriteFile(M_host, argv[1]);
-	}   
 
 	// Free matrices
     FreeMatrix(&M_host);
@@ -209,19 +186,6 @@ void FreeMatrix(Matrix* M)
 // Read a floating point matrix in from file
 // Returns zero if the number of elements read is 
 //  equals M.height * M.width, and 1 otherwise
-int ReadFile(Matrix* M, char* file_name)
-{
-	unsigned int data_read = M->height*M->width;
-	nocutReadFilef(file_name, &(M->elements), &data_read, true);
-	return (data_read != (M->height * M->width));
-}
-
-// Write a floating point matrix to file
-void WriteFile(Matrix M, char* file_name)
-{
-    nocutWriteFilef(file_name, M.elements, M.width*M.height,
-                       0.0001f);
-}
 
 
 

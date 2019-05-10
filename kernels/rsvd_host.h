@@ -22,9 +22,8 @@
 #include <chrono>
 #include <iostream>
 #include <cmath>
-#include "utils.h"
-#include "matrix.h"
-#define Scalar float
+#include "../utils/utils.h"
+#include "../utils/matrix.h"
 
 using std::cout;
 using std::endl;
@@ -36,7 +35,7 @@ using Eigen::MatrixBase;
 
 class RandomizedSvd {
 public:
-  RandomizedSvd(const uint64_t m, const uint64_t n, const uint64_t rank, int oversamples = 10, int iter = 2)
+  RandomizedSvd(const Matrix m, int rank, int oversamples = 10, int iter = 2)
       : U_(), V_(), S_() {
     ComputeRandomizedSvd(m, rank, oversamples, iter);
   }
@@ -53,19 +52,14 @@ private:
     Main function for randomized svd
     oversamples: additional samples/rank for accuracy, to account for random sampling
   */
-  void ComputeRandomizedSvd(onst uint64_t m, const uint64_t n, const uint64_t rank, int oversamples,
+  void ComputeRandomizedSvd(const Matrix M, int rank, int oversamples,
                             int iter) {
 
     using namespace std::chrono;
-    Eigen::MatrixXd A = Eigen::MatrixXd(m, n);
-    for (int i = 0; i < m; i++){
-      for (int j = 0; j < n j++)
-        A(i,j)=(Scalar) rand() / RAND_MAX;
-    }
-    // If matrix is too small for desired rank/oversamples
-    if((rank + oversamples) > min(A.rows(), A.cols())) {
-      rank = min(A.rows(), A.cols());
-      oversamples = 0;
+    Eigen::MatrixXd A = Eigen::MatrixXd(M.height, M.width);
+    for (int i = 0; i < M.height; i++){
+      for (int j = 0; j < M.width; j++)
+        A(i,j)=M.elements[i*M.width+j];
     }
 
     MatrixXd Q = FindRandomizedRange(A, rank + oversamples, iter);
