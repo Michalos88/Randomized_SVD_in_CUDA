@@ -1,5 +1,7 @@
-#include "gpuErrorCheck.h"
-#include "rsvd.h"
+#include "../utils/gpuErrorCheck.h"
+#include "../utils/rsvd.h"
+#include "caqr2.cu"
+#include "../utils/math_util_gpu.cpp"
 using namespace std;
 
 void rsvd_colSampling_gpu(double *U, double *S, double *VT, double *A,
