@@ -13,28 +13,20 @@
 // #include "./kernels/caqr.cu"
 // #include "./kernels/matrix_op_kernel.cu"
 #include "./utils/gpuErrorCheck.h"
-#include "./utils/rsvd.h"
-#include "./utils/math_util_gpu.cpp"
-#include "./utils/math_util_cpu.cpp"
 #define TILE_WIDTH 16
 #define Scalar float
-
 #include "cuda_runtime.h"
-// #include "device_launch_paraMeters.h"
-
 #include<iostream>
 #include<iomanip>
 #include<cusolverDn.h>
 #include<cuda_runtime_api.h>
-
+#include <stdint.h>
 // #include "Utilities.cuh"
 
 // void mmqr(Scalar* mat, Scalar* tau, int m, int n);
 // void getPanelDims(int m, int n, int* rowPanels, int* colPanels);
 // void MatrixMulOnDevice(const Matrix M, const Matrix N, Matrix P);
 // void explicitQR(Scalar* A, Scalar* tau, Scalar* Q, Scalar* R, int m, int n);
-
-
 // Matrix multiplication kernel thread specification
 
 // __global__ void find_randomized_range(Matrix M, int rank)
@@ -182,11 +174,17 @@
 //  (5) deterministic SVD decomposition on 𝐵.
 ////////////////////////////////////////////////////////////////////////////////
 
-void rsvd(const uint64_t m, const uint64_t n, const uint64_t r){
+void rsvd(const uint64_t m, const uint64_t n, const uint64_t k){
+
+    // create cusolverDn/cublas handle
+    cusolverDnHandle_t cusolverH = NULL;
+    cublasHandle_t cublasH = NULL;
+    CHECK_CUSOLVER( cusolverDnCreate(&cusolverH) );
+    CHECK_CUBLAS( cublasCreate(&cublasH) );
 
     const uint64_t p = k; // oversampling number
     const uint64_t l = k + p;
-
+    const uint64_t q = 2; // power iteration factor
     assert(l < min(m, n) && "k+p must be < min(m, n)" );
 
     const uint64_t ldA  = roundup_to_32X( m );  // multiple of 32 by default
@@ -214,7 +212,7 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t r){
 
     /*********************************** In-core rSVD ***********************************/
     double *dev_A, *dev_U, *dev_S, *dev_VT;
-    uint64_t tick = getCurrTime();
+    // uint64_t tick = getCurrTime();
 
     if(dataSize < freeMem * 0.7){
         CHECK_CUDA( cudaMalloc((void **)&dev_A, ldA * n * sizeof(double)) );
@@ -229,28 +227,28 @@ void rsvd(const uint64_t m, const uint64_t n, const uint64_t r){
         
         //print_device_matrix(dev_A, m, n, ldA, "A");
         
-        rsvd_gpu(dev_U, dev_S, dev_VT, dev_A, m, n, l, q, cusolverH, cublasH);
+        // rsvd_gpu(dev_U, dev_S, dev_VT, dev_A, m, n, l, q, cusolverH, cublasH);
     }
-    uint64_t tock = getCurrTime();
-    double InCoreTime = (tock - tick) / 1e6; //from µs to s
+    // uint64_t tock = getCurrTime();
+    // double InCoreTime = (tock - tick) / 1e6; //from µs to s
     
-    double InCoreErr = 0.0;
+    // double InCoreErr = 0.0;
     
-    if( dataSize < freeMem * 0.7 && testError == true){
+    // if( dataSize < freeMem * 0.7 && testError == true){
         
-        CHECK_CUDA( cudaMalloc((void **)&dev_A, ldA * n * sizeof(double)) );
-        CHECK_CUDA( cudaMemset(dev_A, 0,   ldA * l * sizeof(double)) );
-        CHECK_CUBLAS( cublasSetMatrix(m, n, sizeof(double), host_A, m, dev_A, ldA) );
-        InCoreErr = svdFrobeniusDiffGPU(cublasH, dev_A, dev_U, dev_S, dev_VT, m, n, l);
-        CHECK_CUDA( cudaFree( dev_A ) );        
-    }
-    if( dataSize < freeMem * 0.7){
-        // clean up memory
+    //     CHECK_CUDA( cudaMalloc((void **)&dev_A, ldA * n * sizeof(double)) );
+    //     CHECK_CUDA( cudaMemset(dev_A, 0,   ldA * l * sizeof(double)) );
+    //     CHECK_CUBLAS( cublasSetMatrix(m, n, sizeof(double), host_A, m, dev_A, ldA) );
+    //     InCoreErr = svdFrobeniusDiffGPU(cublasH, dev_A, dev_U, dev_S, dev_VT, m, n, l);
+    //     CHECK_CUDA( cudaFree( dev_A ) );        
+    // }
+    // if( dataSize < freeMem * 0.7){
+    //     // clean up memory
 
-        CHECK_CUDA( cudaFree( dev_U ) );
-        CHECK_CUDA( cudaFree( dev_S ) );
-        CHECK_CUDA( cudaFree( dev_VT) );
-    }
+    //     CHECK_CUDA( cudaFree( dev_U ) );
+    //     CHECK_CUDA( cudaFree( dev_S ) );
+    //     CHECK_CUDA( cudaFree( dev_VT) );
+    // }
 }
 
 

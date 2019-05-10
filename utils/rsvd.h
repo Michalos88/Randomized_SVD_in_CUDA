@@ -10,6 +10,10 @@
 #include <cusolverDn.h>
 #include <curand_kernel.h> // for random number generator
 #include <iomanip>
+#include "math_util_gpu.cpp"
+#include "math_util_cpu.cpp"
+#include <stdint.h>
+
 
 #define TimerON true
 #define testError true
