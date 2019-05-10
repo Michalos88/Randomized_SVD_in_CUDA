@@ -81,13 +81,30 @@ void rsvd_on_gpu(const uint64_t m, const uint64_t n, const uint64_t k){
         CHECK_CUDA( cudaMemsetAsync(dev_VT,0,   ldVT* n * sizeof(double)) );
         CHECK_CUBLAS( cublasSetMatrix(m, n, sizeof(double), host_A, m, dev_A, ldA) );
         rsvd_gpu(dev_U, dev_S, dev_VT, dev_A, m, n, l, q, cusolverH, cublasH);
+
+        uint64_t tock = getCurrTime();
+        double InCoreTime = (tock - tick) / 1e6; //from µs to s
+    
+        cout << "RSVD On GPU Time: " << InCoreTime << endl;
+
+        double InCoreErr = 0.0;
+
+        CHECK_CUDA( cudaMalloc((void **)&dev_A, ldA * n * sizeof(double)) );
+        CHECK_CUDA( cudaMemset(dev_A, 0,   ldA * l * sizeof(double)) );
+        CHECK_CUBLAS( cublasSetMatrix(m, n, sizeof(double), host_A, m, dev_A, ldA) );
+        InCoreErr = svdFrobeniusDiffGPU(cublasH, dev_A, dev_U, dev_S, dev_VT, m, n, l);
+        CHECK_CUDA( cudaFree( dev_A ) );  
+
+        CHECK_CUDA( cudaFree( dev_U ) );
+        CHECK_CUDA( cudaFree( dev_S ) );
+        CHECK_CUDA( cudaFree( dev_VT) );
+
+        cout << "RSVD Error: " << InCoreErr << endl;
+
     }else{
         cout << "This Matrix is too big!" << endl;
     }
-    uint64_t tock = getCurrTime();
-    double InCoreTime = (tock - tick) / 1e6; //from µs to s
 
-    cout << "RSVD On GPU Time: " << InCoreTime << endl;
 }
 
 
