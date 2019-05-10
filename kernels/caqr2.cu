@@ -99,12 +99,12 @@ public:
 /*************************************** CUDA kernels *****************************************************/
 __device__ real_t reduce(real_t * u_sh, real_t ub[], real_t col[], real_t * av, int tid_u, int tid_l, int tid)
 {
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE ; i++)
         ub[i] = u_sh[tid_u + i*BLK_ROWS];
     
     real_t val = (real_t) 0;
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE ; i++)
         val += ub[i] * col[i];
     
@@ -113,7 +113,7 @@ __device__ real_t reduce(real_t * u_sh, real_t ub[], real_t col[], real_t * av, 
     if(tid < (NUM_THREADS/2)) av[tid] = av[tid + (NUM_THREADS/2)] + val;
     __syncthreads();
     val = 0;
-#pragma unroll
+
     for(int i = 0 ; i < (BLK_ROWS/2) ; i++)
         val += av[tid_l + BLK_WIDTH*i];
     
@@ -124,14 +124,14 @@ __device__ void update(real_t * u_sh, real_t ub[], real_t col[], real_t res, int
 {
     // Rank-1 update
     real_t fres = (real_t) 2 * res;
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE ; i++)
         col[i] -= (real_t) ub[i] * fres;
 }
 
 __device__ void load_a(real_t * a, real_t col[], int tid)
 {
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE; i++)
         col[i] = a[tid + i*NUM_THREADS];
 }
@@ -140,7 +140,7 @@ __device__ void load_a_triangles(real_t * a, real_t col[], int tid, int offset_b
 {
     // This is hardcoded for 128x16. Oops!
     real_t * a_orig = a;
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE / (BLK_WIDTH/BLK_ROWS); i++) {
         if(a < A_max) {
             for(int ii = 0 ; ii < (BLK_WIDTH/BLK_ROWS) ; ii++)
@@ -153,7 +153,7 @@ __device__ void load_a_triangles(real_t * a, real_t col[], int tid, int offset_b
 
 __device__ void write_a(real_t * a, real_t col[], int tid)
 {
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE ; i++)
         a[tid + i*NUM_THREADS] = col[i];
 }
@@ -161,7 +161,7 @@ __device__ void write_a(real_t * a, real_t col[], int tid)
 __device__ void write_a_triangles(real_t * a, real_t col[], int tid, int offset_blocks, real_t * A_max)
 {
     // This is hardcoded for 128x16. Oops!
-#pragma unroll
+
     for(int i = 0 ; i < THREAD_STORAGE/ (BLK_WIDTH/BLK_ROWS); i++) {
         if(a < A_max) {
             for(int ii = 0 ; ii < (BLK_WIDTH/BLK_ROWS) ; ii++)
@@ -173,7 +173,7 @@ __device__ void write_a_triangles(real_t * a, real_t col[], int tid, int offset_
 
 __device__ void load_u(real_t * u_sh, real_t * b, int tid)
 {
-#pragma unroll
+
     for(int i = 0 ; i < BLK_WIDTH ; i++)
         u_sh[tid + i*BLK_HEIGHT] = b[tid + i*BLK_HEIGHT];
     __syncthreads();
@@ -232,7 +232,7 @@ __device__ void compute_u(real_t * u_sh, real_t col[], real_t norms[], int tid, 
     else {
         if(tid_l == j) {
             real_t local = 0.0;
-#pragma unroll
+
             for(int i = 0 ; i < THREAD_STORAGE ; i++) {
                 u_sh[tid_u + i*BLK_ROWS] = col[i];
                 if(tid_u + i*BLK_ROWS > j) local += col[i] * col[i];
@@ -244,7 +244,7 @@ __device__ void compute_u(real_t * u_sh, real_t col[], real_t norms[], int tid, 
         if(tid == j)
         {
             real_t nm2_nminus1 = (real_t)0.0;
-#pragma unroll
+
             for(int i = 0 ; i < BLK_ROWS ; i++)
                 nm2_nminus1 += norms[i];
             
@@ -526,11 +526,11 @@ __global__ void blockTranspose(real_t * out, const real_t * in,
     
     // Load whole block into shared memory into column major
     if(tid + BLK_HEIGHT * blockIdx.x < m) {
-#pragma unroll
+
         for(int i = 0 ; i < BLK_WIDTH; i++)
             sh[tid + i*BLK_HEIGHT+i] = (i < n_it) ? in[tid + i * ld_col] : (real_t) 0;
     } else {
-#pragma unroll
+
         for(int i = 0 ; i < BLK_WIDTH ; i++)
             sh[tid + i*BLK_HEIGHT+i] = (real_t) 0;
     }
@@ -540,7 +540,7 @@ __global__ void blockTranspose(real_t * out, const real_t * in,
     // Load block out of shared memory in transposed form
     int off = tid_l * (BLK_HEIGHT+1) + tid_u;
     
-#pragma unroll
+
     for(int i = 0 ; i < BLK_WIDTH ; i++)
     { out[tid + i * BLK_HEIGHT] = sh[off + i * BLK_ROWS]; }
     
@@ -565,7 +565,7 @@ __global__ void trans_inv(real_t * out, const real_t * in, int ld_panel_size, in
     // Load block into shared memory in column major
     int off = tid_l * (BLK_HEIGHT+1) + tid_u;
     
-#pragma unroll
+
     for(int i = 0 ; i < BLK_WIDTH ; i++)
         sh[off + i * BLK_ROWS] = in[tid + i * BLK_HEIGHT];
     
