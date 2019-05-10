@@ -10,17 +10,18 @@
 #include <sys/time.h>
 #include <cuda_profiler_api.h>
 #include "cuda_runtime.h"
-#include<iostream>
-#include<iomanip>
-#include<cusolverDn.h>
-#include<cuda_runtime_api.h>
+#include <iostream>
+#include <iomanip>
+#include <cuda_runtime_api.h>
 #include <stdint.h>
 
 // My Packages
 #include "./utils/matrix.h"
+#include "./utils/gpuErrorCheck.h"
+#include "./utils/rsvd.h"
 // #include "./kernels/caqr.cu"
 // #include "./kernels/matrix_op_kernel.cu"
-#include "./utils/gpuErrorCheck.h"
+
 
 // CONSTANTS 
 #define TILE_WIDTH 16
